@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Spot Details - TwinSync Spot{% endblock %}
+
+{% block content %}
+<div id="spot-detail-container">
+    <div class="empty-state">
+        <div class="empty-icon">📍</div>
+        <h2 class="empty-title">Loading spot...</h2>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const spotId = {{ spot_id }};
+
+async function loadSpot() {
+    try {
+        const data = await api(`/api/spots/${spotId}`);
+        renderSpotDetail(data);
+    } catch (error) {
+        showToast('Failed to load spot', 'error');
+    }
+}
+
+function renderSpotDetail(data) {
+    const spot = data.spot;
+    const checks = data.checks || [];
+    
+    const container = document.getElementById('spot-detail-container');
+    
+    const statusEmoji = spot.last_check?.status === 'pass' ? '✅' : 
+                       spot.last_check?.status === 'fail' ? '❌' : '❓';
+    
+    container.innerHTML = `
+        <div class="page-header">
+            <h1 class="page-title">${statusEmoji} ${spot.name}</h1>
+            <p class="page-subtitle">${spot.description}</p>
+        </div>
+        
+        <div class="mb-3" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button onclick="checkSpot(${spot.id})" class="btn btn-primary">
+                🔄 Check Now
+            </button>
+            ${!spot.snoozed_until ? `
+                <button onclick="snoozeSpot(${spot.id}, 24)" class="btn btn-outline">
+                    😴 Snooze 24h
+                </button>
+            ` : `
+                <button onclick="api('/api/spots/${spot.id}/unsnooze', {method: 'POST'}).then(() => location.reload())" 
+                        class="btn btn-outline">
+                    🔔 Unsnooze
+                </button>
+            `}
+            <button onclick="resetSpot(${spot.id})" class="btn btn-outline">
+                🔄 Reset History
+            </button>
+            <button onclick="deleteSpot(${spot.id})" class="btn btn-danger">
+                🗑️ Delete Spot
+            </button>
+        </div>
+        
+        ${spot.last_check ? `
+            <div class="card mb-3">
+                <h2 class="mb-2">Latest Check</h2>
+                <div class="spot-status">
+                    <span class="status-indicator status-${spot.last_check.status}"></span>
+                    <div style="flex: 1;">
+                        <div class="spot-score">${spot.last_check.score}/100</div>
+                        <div class="spot-feedback">${spot.last_check.feedback}</div>
+                        <div class="history-time mt-1">
+                            ${formatDate(spot.last_check.timestamp)}
+                        </div>
+                    </div>
+                </div>
+                
+                ${spot.last_check.items_to_sort.length > 0 ? `
+                    <div class="mt-2">
+                        <h3 class="mb-1">Items to Sort</h3>
+                        <ul class="items-list">
+                            ${spot.last_check.items_to_sort.map(item => `
+                                <li class="item-card">
+                                    <div class="item-name">${item.name}</div>
+                                    <div class="item-location">📍 ${item.location}</div>
+                                    <div class="item-suggestion">💡 ${item.suggestion}</div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        ` : '<div class="card mb-3"><p>Not checked yet</p></div>'}
+        
+        ${spot.memory ? `
+            <div class="card mb-3">
+                <h2 class="mb-2">Stats</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${spot.memory.total_checks}</div>
+                        <div class="stat-label">Total Checks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${spot.memory.pass_rate.toFixed(0)}%</div>
+                        <div class="stat-label">Pass Rate</div>
+                    </div>
+                    ${spot.memory.patterns.current_streak > 0 ? `
+                        <div class="stat-card">
+                            <div class="stat-value">${spot.memory.patterns.current_streak}</div>
+                            <div class="stat-label">Current Streak</div>
+                        </div>
+                    ` : ''}
+                    ${spot.memory.patterns.best_streak > 0 ? `
+                        <div class="stat-card">
+                            <div class="stat-value">${spot.memory.patterns.best_streak}</div>
+                            <div class="stat-label">Best Streak</div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                ${spot.memory.patterns.recurring_items.length > 0 || spot.memory.patterns.best_day ? `
+                    <div class="patterns-section">
+                        <h3 class="mb-2">Patterns</h3>
+                        
+                        ${spot.memory.patterns.recurring_items.length > 0 ? `
+                            <div class="pattern-item">
+                                <div class="pattern-label">Items that often appear:</div>
+                                <div class="recurring-items">
+                                    ${spot.memory.patterns.recurring_items.map(item => 
+                                        `<span class="item-tag">${item}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${spot.memory.patterns.best_day ? `
+                            <div class="pattern-item">
+                                <div class="pattern-label">Best day:</div>
+                                <div class="pattern-value">${spot.memory.patterns.best_day}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${spot.memory.patterns.worst_day ? `
+                            <div class="pattern-item">
+                                <div class="pattern-label">Needs attention on:</div>
+                                <div class="pattern-value">${spot.memory.patterns.worst_day}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        ` : ''}
+        
+        ${checks.length > 0 ? `
+            <div class="card">
+                <h2 class="mb-2">Check History</h2>
+                <ul class="history-list">
+                    ${checks.map(check => {
+                        const statusClass = `status-${check.status}`;
+                        const statusEmoji = check.status === 'pass' ? '✓' : 
+                                          check.status === 'fail' ? '✕' : '?';
+                        return `
+                            <li class="history-item">
+                                <div class="history-status">
+                                    <span class="status-indicator ${statusClass}"></span>
+                                </div>
+                                <div class="history-content">
+                                    <div class="history-time">${formatDate(check.timestamp)}</div>
+                                    <div class="history-score">${check.score}/100</div>
+                                    <div class="history-feedback">${check.feedback}</div>
+                                </div>
+                            </li>
+                        `;
+                    }).join('')}
+                </ul>
+            </div>
+        ` : ''}
+    `;
+}
+
+// Load spot on page load
+loadSpot();
+</script>
+{% endblock %}

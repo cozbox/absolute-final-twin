@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - TwinSync Spot{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-subtitle">Configuration and information</p>
+</div>
+
+<div class="card mb-3" style="max-width: 800px;">
+    <h2 class="mb-2">🔑 API Status</h2>
+    <div id="api-status">
+        <p>Loading...</p>
+    </div>
+</div>
+
+<div class="card mb-3" style="max-width: 800px;">
+    <h2 class="mb-2">ℹ️ About</h2>
+    <p style="margin-bottom: 1rem;">
+        <strong>TwinSync Spot</strong> helps you monitor spaces in your home and compare them to YOUR definition of how they should look.
+    </p>
+    <p style="margin-bottom: 1rem;">
+        Version: <strong>1.0.3</strong>
+    </p>
+    <p style="margin-bottom: 1rem;">
+        This add-on uses Google Gemini 2.0 Flash to analyze camera snapshots and provide feedback in your chosen voice style.
+    </p>
+    <a href="https://github.com/cozbox/absolute-final-twin" target="_blank" class="btn btn-outline">
+        📖 Documentation
+    </a>
+</div>
+
+<div class="card mb-3" style="max-width: 800px;">
+    <h2 class="mb-2">💰 Costs</h2>
+    <p style="margin-bottom: 1rem;">
+        TwinSync Spot uses the Gemini 2.0 Flash API, which is free for the foreseeable future according to Google.
+    </p>
+    <p style="margin-bottom: 1rem;">
+        Each check sends one image to the Gemini API for analysis. The API has generous rate limits:
+    </p>
+    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li>15 requests per minute</li>
+        <li>1 million tokens per minute</li>
+        <li>1,500 requests per day</li>
+    </ul>
+    <p>
+        For typical usage (checking a few spots a few times per day), you'll stay well within these limits.
+    </p>
+</div>
+
+<div class="card" style="max-width: 800px;">
+    <h2 class="mb-2">🎤 Voice Personalities</h2>
+    <p style="margin-bottom: 1rem;">
+        Each spot can have a different voice personality for feedback:
+    </p>
+    <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+        <li><strong>Direct:</strong> Straightforward, no-nonsense feedback</li>
+        <li><strong>Supportive:</strong> Encouraging and positive</li>
+        <li><strong>Analytical:</strong> Detailed analysis with specifics</li>
+        <li><strong>Minimal:</strong> Brief, emoji-friendly responses</li>
+        <li><strong>Gentle Nudge:</strong> Kind reminders without pressure</li>
+        <li><strong>Custom:</strong> Use your own personality</li>
+    </ul>
+    <p>
+        Choose the voice that works best for each space and your motivation style.
+    </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSettings() {
+    try {
+        const data = await api('/api/settings');
+        const statusDiv = document.getElementById('api-status');
+        
+        const geminiStatus = data.gemini_api_key_configured ? 
+            '<span style="color: var(--secondary);">✅ Configured</span>' :
+            '<span style="color: var(--danger);">❌ Not configured</span>';
+        
+        const supervisorStatus = data.supervisor_token_configured ? 
+            '<span style="color: var(--secondary);">✅ Available</span>' :
+            '<span style="color: var(--danger);">❌ Not available</span>';
+        
+        statusDiv.innerHTML = `
+            <div class="pattern-item">
+                <div class="pattern-label">Gemini API Key:</div>
+                <div>${geminiStatus}</div>
+            </div>
+            <div class="pattern-item mt-1">
+                <div class="pattern-label">Home Assistant Access:</div>
+                <div>${supervisorStatus}</div>
+            </div>
+            ${!data.gemini_api_key_configured ? `
+                <div class="mt-2" style="padding: 1rem; background: var(--warning); color: white; border-radius: 4px;">
+                    <strong>⚠️ Action Required:</strong> Configure your Gemini API key in the add-on configuration to enable spot checking.
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: white; text-decoration: underline;">
+                        Get API key →
+                    </a>
+                </div>
+            ` : ''}
+        `;
+    } catch (error) {
+        showToast('Failed to load settings', 'error');
+    }
+}
+
+// Load settings on page load
+loadSettings();
+</script>
+{% endblock %}

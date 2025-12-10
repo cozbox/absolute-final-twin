@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Add Spot - TwinSync Spot{% endblock %}
+{% block nav_add %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Add New Spot</h1>
+    <p class="page-subtitle">Create a new spot to monitor</p>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <form id="add-spot-form">
+        <div class="form-group">
+            <label class="form-label" for="name">Spot Name</label>
+            <input type="text" id="name" name="name" class="form-input" required 
+                   placeholder="e.g., Kitchen Counter">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label" for="description">Description</label>
+            <textarea id="description" name="description" class="form-textarea" required
+                      placeholder="Describe how this spot should look..."></textarea>
+            <p class="form-helper">Be specific about what you want to see (or not see) in this space</p>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label" for="camera">Camera</label>
+            <select id="camera" name="camera_entity_id" class="form-select" required>
+                <option value="">Loading cameras...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label" for="spot_type">Spot Type</label>
+            <select id="spot_type" name="spot_type" class="form-select" required>
+                <option value="">Select a type...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Voice Personality</label>
+            <p class="form-helper mb-2">Choose how you want feedback to be delivered</p>
+            <div id="voices-grid" class="voice-grid">
+                <div>Loading voices...</div>
+            </div>
+            <input type="hidden" id="voice_id" name="voice_id" required>
+        </div>
+        
+        <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn btn-primary">Create Spot</button>
+            <a href="/" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card mt-3" style="max-width: 800px; margin: 2rem auto 0;">
+    <h3 class="mb-2">Quick Templates</h3>
+    <p class="form-helper mb-2">Click a template to auto-fill the form</p>
+    <div id="templates-grid" class="template-grid">
+        <div>Loading templates...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedVoiceId = null;
+
+async function loadCameras() {
+    try {
+        const data = await api('/api/cameras');
+        const select = document.getElementById('camera');
+        
+        if (data.cameras.length === 0) {
+            select.innerHTML = '<option value="">No cameras found</option>';
+            return;
+        }
+        
+        select.innerHTML = '<option value="">Select a camera...</option>' +
+            data.cameras.map(cam => 
+                `<option value="${cam.entity_id}">${cam.name}</option>`
+            ).join('');
+    } catch (error) {
+        showToast('Failed to load cameras', 'error');
+    }
+}
+
+async function loadSpotTypes() {
+    try {
+        const data = await api('/api/spot-types');
+        const select = document.getElementById('spot_type');
+        
+        select.innerHTML = '<option value="">Select a type...</option>' +
+            data.types.map(type => 
+                `<option value="${type}">${type}</option>`
+            ).join('');
+        
+        // Load templates
+        const templatesGrid = document.getElementById('templates-grid');
+        templatesGrid.innerHTML = Object.entries(data.templates).map(([key, template]) => `
+            <div class="template-card" onclick="applyTemplate('${key}')">
+                <h4>${template.name}</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    ${template.description}
+                </p>
+            </div>
+        `).join('');
+    } catch (error) {
+        showToast('Failed to load spot types', 'error');
+    }
+}
+
+async function loadVoices() {
+    try {
+        const data = await api('/api/voices');
+        const grid = document.getElementById('voices-grid');
+        
+        grid.innerHTML = data.voices.map(voice => `
+            <div class="voice-option" onclick="selectVoice('${voice.id}')">
+                <div class="voice-name">${voice.name}</div>
+                <div class="voice-description">${voice.description}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        showToast('Failed to load voices', 'error');
+    }
+}
+
+function selectVoice(voiceId) {
+    selectedVoiceId = voiceId;
+    document.getElementById('voice_id').value = voiceId;
+    
+    // Update UI
+    document.querySelectorAll('.voice-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    event.target.closest('.voice-option').classList.add('selected');
+}
+
+function applyTemplate(templateKey) {
+    api('/api/spot-types').then(data => {
+        const template = data.templates[templateKey];
+        if (template) {
+            document.getElementById('name').value = template.name;
+            document.getElementById('description').value = template.description;
+            document.getElementById('spot_type').value = template.type;
+            showToast('Template applied', 'success');
+        }
+    });
+}
+
+document.getElementById('add-spot-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    if (!selectedVoiceId) {
+        showToast('Please select a voice personality', 'error');
+        return;
+    }
+    
+    const button = e.target.querySelector('button[type="submit"]');
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner"></span> Creating...';
+    
+    try {
+        await api('/api/spots', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        
+        showToast('Spot created successfully!', 'success');
+        setTimeout(() => window.location.href = '/', 1000);
+    } catch (error) {
+        showToast(error.message, 'error');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+});
+
+// Load data on page load
+loadCameras();
+loadSpotTypes();
+loadVoices();
+</script>
+{% endblock %}
