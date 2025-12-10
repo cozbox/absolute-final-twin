@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TwinSync Spot{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <span class="logo-icon">📍</span>
+                    <span>TwinSync Spot</span>
+                </a>
+                <div class="header-actions">
+                    <button id="theme-toggle" class="btn btn-icon btn-outline" title="Toggle theme">
+                        🌙
+                    </button>
+                    <button class="nav-toggle">☰</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="/" class="{% block nav_home %}{% endblock %}">🏠 Home</a></li>
+                <li><a href="/add" class="{% block nav_add %}{% endblock %}">➕ Add Spot</a></li>
+                <li><a href="/settings" class="{% block nav_settings %}{% endblock %}">⚙️ Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <div id="toast-container" class="toast-container"></div>
+    
+    <script src="{{ url_for('static', path='/js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

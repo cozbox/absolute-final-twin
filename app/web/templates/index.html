@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}TwinSync Spot - Your Spots{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Your Spots</h1>
+    <p class="page-subtitle">Monitor spaces and keep them matching your definition</p>
+</div>
+
+<div id="spots-container">
+    <div class="empty-state">
+        <div class="empty-icon">📍</div>
+        <h2 class="empty-title">Loading spots...</h2>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSpots() {
+    try {
+        const data = await api('/api/spots');
+        renderSpots(data.spots);
+    } catch (error) {
+        showToast('Failed to load spots', 'error');
+    }
+}
+
+function renderSpots(spots) {
+    const container = document.getElementById('spots-container');
+    
+    if (spots.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📍</div>
+                <h2 class="empty-title">No spots yet</h2>
+                <p class="empty-text">Create your first spot to start monitoring spaces</p>
+                <a href="/add" class="btn btn-primary">➕ Add Your First Spot</a>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="mb-3">
+            <button onclick="checkAllSpots(event)" class="btn btn-primary">🔄 Check All Spots</button>
+        </div>
+        <div class="spots-grid">
+            ${spots.map(spot => renderSpotCard(spot)).join('')}
+        </div>
+    `;
+}
+
+function renderSpotCard(spot) {
+    const statusClass = spot.last_check ? `status-${spot.last_check.status}` : 'status-unknown';
+    const statusEmoji = spot.last_check?.status === 'pass' ? '✓' : 
+                       spot.last_check?.status === 'fail' ? '✕' : '?';
+    
+    const snoozedBadge = spot.snoozed_until ? 
+        `<span class="snoozed-badge">😴 Snoozed</span>` : '';
+    
+    return `
+        <div class="card spot-card" onclick="window.location.href='/spot/${spot.id}'">
+            <div class="spot-card-header">
+                <span class="spot-type-badge">${spot.spot_type}</span>
+                ${snoozedBadge}
+            </div>
+            
+            <h3 class="spot-name">${spot.name}</h3>
+            <p class="spot-description">${spot.description}</p>
+            
+            ${spot.last_check ? `
+                <div class="spot-status">
+                    <span class="status-indicator ${statusClass}"></span>
+                    <div style="flex: 1;">
+                        <div class="spot-score">${spot.last_check.score}/100</div>
+                        <div class="spot-feedback">${spot.last_check.feedback}</div>
+                    </div>
+                </div>
+            ` : '<div class="spot-status">Not checked yet</div>'}
+            
+            <div class="spot-actions" onclick="event.stopPropagation()">
+                <button onclick="checkSpot(${spot.id}, event)" class="btn btn-primary btn-sm">
+                    🔄 Check Now
+                </button>
+                ${!spot.snoozed_until ? `
+                    <button onclick="snoozeSpot(${spot.id}, 24)" class="btn btn-outline btn-sm">
+                        😴 Snooze 24h
+                    </button>
+                ` : ''}
+            </div>
+            
+            ${spot.memory ? `
+                <div class="spot-card-footer">
+                    <span>${spot.memory.total_checks} checks</span>
+                    <span>${spot.memory.pass_rate.toFixed(0)}% pass rate</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// Load spots on page load
+loadSpots();
+</script>
+{% endblock %}
