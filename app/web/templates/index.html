@@ -45,7 +45,7 @@ function renderSpots(spots) {
     
     container.innerHTML = `
         <div class="mb-3">
-            <button onclick="checkAllSpots()" class="btn btn-primary">🔄 Check All Spots</button>
+            <button onclick="checkAllSpots(event)" class="btn btn-primary">🔄 Check All Spots</button>
         </div>
         <div class="spots-grid">
             ${spots.map(spot => renderSpotCard(spot)).join('')}
@@ -82,7 +82,7 @@ function renderSpotCard(spot) {
             ` : '<div class="spot-status">Not checked yet</div>'}
             
             <div class="spot-actions" onclick="event.stopPropagation()">
-                <button onclick="checkSpot(${spot.id})" class="btn btn-primary btn-sm">
+                <button onclick="checkSpot(${spot.id}, event)" class="btn btn-primary btn-sm">
                     🔄 Check Now
                 </button>
                 ${!spot.snoozed_until ? `

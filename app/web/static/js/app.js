@@ -45,8 +45,10 @@ function showToast(message, type = 'info') {
 }
 
 // Check a spot
-async function checkSpot(spotId) {
-    const button = event.target;
+async function checkSpot(spotId, evt) {
+    const button = evt ? evt.target : document.querySelector(`[onclick*="checkSpot(${spotId}"]`);
+    if (!button) return;
+    
     const originalText = button.innerHTML;
     
     button.disabled = true;
@@ -110,8 +112,10 @@ async function deleteSpot(spotId) {
 }
 
 // Check all spots
-async function checkAllSpots() {
-    const button = event.target;
+async function checkAllSpots(evt) {
+    const button = evt ? evt.target : document.querySelector('[onclick*="checkAllSpots"]');
+    if (!button) return;
+    
     const originalText = button.innerHTML;
     
     button.disabled = true;

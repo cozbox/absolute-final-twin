@@ -13,7 +13,7 @@
 
 {% block scripts %}
 <script>
-const spotId = {{ spot_id }};
+const spotId = {{ spot_id | tojson }};
 
 async function loadSpot() {
     try {
@@ -40,7 +40,7 @@ function renderSpotDetail(data) {
         </div>
         
         <div class="mb-3" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-            <button onclick="checkSpot(${spot.id})" class="btn btn-primary">
+            <button onclick="checkSpot(${spot.id}, event)" class="btn btn-primary">
                 🔄 Check Now
             </button>
             ${!spot.snoozed_until ? `

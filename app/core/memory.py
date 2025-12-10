@@ -1,4 +1,5 @@
 """Memory and pattern detection engine."""
+import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from collections import Counter
@@ -18,7 +19,6 @@ class MemoryEngine:
         all_items = []
         for check in checks:
             if check.get("items_to_sort"):
-                import json
                 items = json.loads(check["items_to_sort"]) if isinstance(check["items_to_sort"], str) else check["items_to_sort"]
                 for item in items:
                     all_items.append(item.get("name", "").lower())

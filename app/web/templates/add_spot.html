@@ -99,13 +99,20 @@ async function loadSpotTypes() {
         // Load templates
         const templatesGrid = document.getElementById('templates-grid');
         templatesGrid.innerHTML = Object.entries(data.templates).map(([key, template]) => `
-            <div class="template-card" onclick="applyTemplate('${key}')">
+            <div class="template-card" data-template-key="${key}">
                 <h4>${template.name}</h4>
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
                     ${template.description}
                 </p>
             </div>
         `).join('');
+        
+        // Add event listeners to template cards
+        templatesGrid.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', () => {
+                applyTemplate(card.dataset.templateKey);
+            });
+        });
     } catch (error) {
         showToast('Failed to load spot types', 'error');
     }

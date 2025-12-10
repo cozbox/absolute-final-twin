@@ -1,6 +1,7 @@
 """Image analysis using Gemini API."""
 import os
 import base64
+import json
 import aiohttp
 from datetime import datetime
 from typing import Optional, List
@@ -113,7 +114,6 @@ Respond in this exact JSON format:
                         text = text[:-3]
                     text = text.strip()
                     
-                    import json
                     data = json.loads(text)
                     
                     # Build CheckResult
