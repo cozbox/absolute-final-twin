@@ -9,19 +9,28 @@ RUN apk add --no-cache \
     openssl-dev \
     ffmpeg
 
-# Copy requirements and install Python packages
-COPY requirements.txt /tmp/
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+# Set working directory
+WORKDIR /app
+
+# Copy and install Python requirements
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app /opt/app
+COPY app/ ./app/
 
 # Copy run script
-COPY run.sh /
+COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
-# Set working directory
-WORKDIR /opt
+# Create data directory
+RUN mkdir -p /data
 
-# Run the application
-CMD [ "/run.sh" ]
+# Labels
+LABEL \
+    io.hass.name="TwinSync Spot" \
+    io.hass.description="Does this match YOUR definition?" \
+    io.hass.type="addon"
+
+# Use CMD to run directly (bypasses s6 service management)
+CMD ["/run.sh"]

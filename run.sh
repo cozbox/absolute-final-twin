@@ -1,15 +1,41 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/bash
+set -e
 
-# Read configuration
-GEMINI_API_KEY=$(bashio::config 'gemini_api_key')
+echo "=========================================="
+echo "TwinSync Spot - Starting..."
+echo "=========================================="
 
-# Export environment variables
-export GEMINI_API_KEY="${GEMINI_API_KEY}"
-export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
+# Read Gemini API key from addon options
+if [ -f /data/options.json ]; then
+    GEMINI_API_KEY=$(cat /data/options.json | python3 -c "import sys, json; print(json.load(sys.stdin).get('gemini_api_key', ''))")
+    export GEMINI_API_KEY
+    echo "Gemini API key: configured"
+else
+    echo "Warning: /data/options.json not found"
+fi
 
-# Log startup
-bashio::log.info "Starting TwinSync Spot..."
+# Export supervisor token if available
+if [ -n "$SUPERVISOR_TOKEN" ]; then
+    export SUPERVISOR_TOKEN
+    echo "Supervisor token: available"
+fi
 
-# Start the application
-cd /opt
-exec uvicorn app.main:app --host 0.0.0.0 --port 8099 --proxy-headers --forwarded-allow-ips='*'
+# Set data directory
+export DATA_DIR="/data"
+
+# Get ingress path from supervisor if available
+if [ -n "$SUPERVISOR_TOKEN" ]; then
+    INGRESS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/addons/self/info 2>/dev/null || echo "{}")
+    INGRESS_ENTRY=$(echo "$INGRESS_INFO" | python3 -c "import sys, json; print(json.load(sys.stdin).get('data', {}).get('ingress_entry', ''))" 2>/dev/null || echo "")
+    if [ -n "$INGRESS_ENTRY" ]; then
+        export INGRESS_PATH="$INGRESS_ENTRY"
+        echo "Ingress path: $INGRESS_PATH"
+    fi
+fi
+
+echo "Starting FastAPI server on port 8099..."
+echo "=========================================="
+
+# Run the FastAPI app
+cd /app
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099
