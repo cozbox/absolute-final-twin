@@ -14,14 +14,14 @@ COPY requirements.txt /tmp/
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy application code
-COPY app /app
+COPY app /opt/app
 
 # Copy run script
 COPY run.sh /
 RUN chmod a+x /run.sh
 
 # Set working directory
-WORKDIR /app
+WORKDIR /opt
 
 # Run the application
 CMD [ "/run.sh" ]

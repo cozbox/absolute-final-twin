@@ -11,5 +11,5 @@ export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
 bashio::log.info "Starting TwinSync Spot..."
 
 # Start the application
-cd /app
+cd /opt
 exec uvicorn app.main:app --host 0.0.0.0 --port 8099 --proxy-headers --forwarded-allow-ips='*'
