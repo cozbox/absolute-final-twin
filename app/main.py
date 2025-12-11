@@ -1,76 +1,141 @@
-"""Main FastAPI application for TwinSync Spot."""
+"""TwinSync Spot - Main FastAPI Application."""
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from pathlib import Path
 
-from app.db import Database
-from app.camera.ha_adapter import HACamera
-from app.core.analyzer import SpotAnalyzer
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from app.db.sqlite import Database
 from app.api.routes import router as api_router
+
+
+# Get configuration from environment
+INGRESS_PATH = os.environ.get("INGRESS_PATH", "")
+DATA_DIR = os.environ.get("DATA_DIR", "/data")
+
+# Paths
+APP_DIR = Path(__file__).parent
+STATIC_DIR = APP_DIR / "web" / "static"
+TEMPLATES_DIR = APP_DIR / "web" / "templates"
+
+# Database instance
+db: Database = None
+
+
+def get_ingress_path(request: Request) -> str:
+    """Resolve the ingress path from env or ingress headers."""
+    if INGRESS_PATH:
+        return INGRESS_PATH.rstrip("/")
+
+    header_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
+    return header_path
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup/shutdown."""
+    """Application lifespan - startup and shutdown."""
+    global db
+    
     # Startup
-    db = Database()
+    db_path = Path(DATA_DIR) / "twinsync.db"
+    db = Database(str(db_path))
     await db.init()
     
+    # Store db in app state for access in routes
     app.state.db = db
-    app.state.camera = HACamera()
-    app.state.analyzer = SpotAnalyzer()
+    app.state.ingress_path = INGRESS_PATH
     
     yield
     
-    # Shutdown (cleanup if needed)
+    # Shutdown
+    await db.close()
 
 
 # Create FastAPI app
 app = FastAPI(
     title="TwinSync Spot",
     description="Does this match YOUR definition?",
-    version="1.0.3",
-    lifespan=lifespan
+    version="1.0.1",
+    lifespan=lifespan,
+    docs_url=f"{INGRESS_PATH}/docs" if INGRESS_PATH else "/docs",
+    openapi_url=f"{INGRESS_PATH}/openapi.json" if INGRESS_PATH else "/openapi.json",
 )
 
 # Mount static files
-static_path = Path(__file__).parent / "web" / "static"
-app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+app.mount(
+    f"{INGRESS_PATH}/static" if INGRESS_PATH else "/static",
+    StaticFiles(directory=str(STATIC_DIR)),
+    name="static"
+)
 
-# Setup templates
-templates_path = Path(__file__).parent / "web" / "templates"
-templates = Jinja2Templates(directory=str(templates_path))
+# Templates
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
 
 # Include API routes
-app.include_router(api_router)
+app.include_router(api_router, prefix=f"{INGRESS_PATH}/api" if INGRESS_PATH else "/api")
 
 
-# Web routes
-@app.get("/", response_class=HTMLResponse)
+@app.get(f"{INGRESS_PATH}/" if INGRESS_PATH else "/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Home page - spots grid."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Main page."""
+    ingress_path = get_ingress_path(request)
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "ingress_path": ingress_path,
+        }
+    )
 
 
-@app.get("/add", response_class=HTMLResponse)
-async def add_spot(request: Request):
-    """Add new spot page."""
-    return templates.TemplateResponse("add_spot.html", {"request": request})
+@app.get(f"{INGRESS_PATH}/add" if INGRESS_PATH else "/add", response_class=HTMLResponse)
+async def add_spot_page(request: Request):
+    """Add spot page."""
+    ingress_path = get_ingress_path(request)
+
+    return templates.TemplateResponse(
+        "add_spot.html",
+        {
+            "request": request,
+            "ingress_path": ingress_path,
+        }
+    )
 
 
-@app.get("/spot/{spot_id}", response_class=HTMLResponse)
-async def spot_detail(request: Request, spot_id: int):
+@app.get(f"{INGRESS_PATH}/spot/{spot_id}" if INGRESS_PATH else "/spot/{spot_id}", response_class=HTMLResponse)
+async def spot_detail_page(request: Request, spot_id: int):
     """Spot detail page."""
-    return templates.TemplateResponse("spot_detail.html", {
-        "request": request,
-        "spot_id": spot_id
-    })
+    ingress_path = get_ingress_path(request)
+
+    return templates.TemplateResponse(
+        "spot_detail.html",
+        {
+            "request": request,
+            "spot_id": spot_id,
+            "ingress_path": ingress_path,
+        }
+    )
 
 
-@app.get("/settings", response_class=HTMLResponse)
-async def settings(request: Request):
+@app.get(f"{INGRESS_PATH}/settings" if INGRESS_PATH else "/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
     """Settings page."""
-    return templates.TemplateResponse("settings.html", {"request": request})
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    has_key = bool(gemini_key and len(gemini_key) > 10)
+    
+    ingress_path = get_ingress_path(request)
+
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "ingress_path": ingress_path,
+            "has_api_key": has_key,
+            "mode": "addon" if os.environ.get("SUPERVISOR_TOKEN") else "standalone",
+        }
+    )
